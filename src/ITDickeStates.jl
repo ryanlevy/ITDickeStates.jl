@@ -19,6 +19,9 @@ function dense_dicke_vector(n::Int, k::Int, d::Int=2)
   return normalize(D)
 end
 
+"""
+eqn 3.11 from doi:10.1103/PhysRevA.110.052438 
+"""
 function gamma(n, k, i, j, m)
   if (k-j) ≤ n-i+1
     return sqrt(1-m+(-1)^m*(j-k)/(n-i+1))
@@ -27,13 +30,32 @@ function gamma(n, k, i, j, m)
   end
 end
 
+"""
+    dicke_state(sites::Vector{<:Index}, k::Integer; ortho=true)
+
+
+return a n site MPS with a uniform superposition of all states
+with hamming weight k
+|Dⁿₖ⟩ has bond dimension k+1
+for example dicke(4,2) has 6 non-zero states of the 2^4 total states
+
+citation: doi:10.1103/PhysRevA.110.052438 
+
+# Optional Keyword Arguments
+  - `ortho = true`: orthogonalize the constructed MPS. Recommended
+
+# Examples
+```julia
+using ITensors, ITensorMPS, ITDickeStates
+
+N = 4
+s = siteinds("Qubit",N; conserve_number=true)
+k = 2 # all hamming weight 2 states
+psi = dicke_state(s,k)
+
+```
+"""
 function dicke_state(sites::Vector{<:Index}, k::Integer; ortho=true)
-  """
-  return a n site MPS with a uniform superposition of all states
-  with hamming weight k
-  |Dⁿₖ⟩ has bond dimension k+1
-  for example dicke(4,2) has 6 non-zero states of the 2^4 total states
-  """
   n = length(sites)
   χ = k+1
 
@@ -62,7 +84,7 @@ function dicke_state(sites::Vector{<:Index}, k::Integer; ortho=true)
           γ = gamma(n, k, i, j, m)
           M[j_, m_, jp + 1] = γ
         end
-      end # _j
+      end # j_
     end # m_
 
     if i==1
