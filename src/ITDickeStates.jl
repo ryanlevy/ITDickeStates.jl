@@ -1,6 +1,7 @@
 module ITDickeStates
 
-using ITensors: hasqns, ITensor, dag, Index, QN, hastags, hasqns
+using ITensors: hasqns, ITensor, dag, Index, QN, hastags, hasqns, @SiteType_str, SiteType
+using ITensors.SiteTypes: _sitetypes
 using ITensorMPS: MPS, orthogonalize
 
 export dicke_state, dense_dicke_vector
@@ -19,6 +20,26 @@ function dense_dicke_vector(n::Int, k::Int, d::Int=2)
   return normalize(D)
 end
 
+# This produces link indices with the proper QN labels
+linear_linkinds(::SiteType, n::Int, k::Int) = nothing
+
+function linear_linkinds(::SiteType"Qubit", n::Int, k::Int)
+  return [[QN("Number", i) => 1 for i in 0:k] for j in 1:(n - 1)]
+end
+
+function linear_linkinds(::SiteType"S=1/2", n::Int, k::Int)
+  return [[QN("Sz", -2*i+1) => 1 for i in 0:k] for j in 1:(n - 1)]
+end
+
+function linear_linkinds(sites::Vector{<:Index}, n::Int, k::Int)
+  stypes = _sitetypes(first(sites))
+  for st in stypes
+    linds = linear_linkinds(st, n, k)
+    !isnothing(linds) && return linds
+  end
+  error("unknown SiteType link inds construction, please define your own")
+end
+
 """
 eqn 3.11 from doi:10.1103/PhysRevA.110.052438 
 """
@@ -34,10 +55,10 @@ end
     dicke_state(sites::Vector{<:Index}, k::Integer; ortho=true)
 
 
-return a n site MPS with a uniform superposition of all states
-with hamming weight k
-|Dⁿₖ⟩ has bond dimension k+1
-for example dicke(4,2) has 6 non-zero states of the 2^4 total states
+return a n site MPS representing the Dicke state |Dⁿₖ⟩, a uniform superposition of all states
+with hamming weight k. The MPS has bond dimension k+1.
+
+Example: |D⁴₂⟩ has 6 non-zero states of the 2^4 total states
 
 citation: doi:10.1103/PhysRevA.110.052438 
 
@@ -61,11 +82,7 @@ function dicke_state(sites::Vector{<:Index}, k::Integer; ortho=true)
 
   psi = MPS(sites)
   spaces = if hasqns(sites)
-    if hastags(sites, "S=1/2")
-      [[QN("Sz", -2*i+1) => 1 for i in 0:k] for j in 1:(n - 1)]
-    elseif hastags(sites, "Qubit")
-      [[QN("Number", i) => 1 for i in 0:k] for j in 1:(n - 1)]
-    end
+    linear_linkinds(sites, n, k)
   else
     [χ for j in 1:(n - 1)]
   end
